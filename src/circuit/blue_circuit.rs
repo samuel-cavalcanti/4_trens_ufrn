@@ -1,10 +1,9 @@
-use crate::circuit::print_waiting;
+
 use crate::{Track, TrackState, Train};
 use std::sync::{Arc, Mutex};
 
 pub struct BlueCircuit {
-    train: Train,
-    state: TrackState,
+
     tracks_1: Vec<(Arc<Mutex<Track>>, TrackState)>,
     tracks_2: Vec<Arc<Mutex<Track>>>,
 }
@@ -12,8 +11,6 @@ pub struct BlueCircuit {
 impl BlueCircuit {
     pub fn new(tracks: Vec<Arc<Mutex<Track>>>) -> BlueCircuit {
         BlueCircuit {
-            train: Train::new(4, 5),
-            state: TrackState::L13,
             tracks_1: vec![
                 (tracks[TrackState::L12 as usize].clone(), TrackState::L12),
                 (tracks[TrackState::L13 as usize].clone(), TrackState::L13),

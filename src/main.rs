@@ -1,8 +1,4 @@
-use bevy::{
-    prelude::*,
-    tasks::{AsyncComputeTaskPool, Task},
-};
-use std::sync::mpsc::{channel, Receiver};
+use bevy::prelude::*;
 use std::sync::{Arc, Mutex};
 use tracks::{
     circuit::{BlueCircuit, GreenCircuit, PurpleCircuit, RedCircuit},
@@ -36,22 +32,32 @@ pub struct HalfWindowSize {
     height: f32,
 }
 
-pub struct UiTrain;
+pub enum ButtonAction {
+    INCREMENT,
+    DECREMENT,
+}
+
+#[derive(Clone)]
+pub enum TrainID {
+    GREEN,
+    PURPLE,
+    RED,
+    BLUE,
+}
+
 pub struct GreenTrainID;
+
 pub struct PurpleTrainID;
+
 pub struct RedTrainID;
+
 pub struct BlueTrainID;
 
 pub struct TrainState {
     state: Arc<Mutex<TrackState>>,
 }
 
-pub struct TrainChannel {
-    receiver: Receiver<usize>,
-}
-
 const APP_NAME: &str = "Visualização da dinâmica dos trens";
-const TIME_STEP: f32 = 1.0 / 60.0;
 
 fn main() {
     App::build()
@@ -60,6 +66,7 @@ fn main() {
             title: APP_NAME.to_string(),
             width: 600.0,
             height: 800.0,
+            vsync: true,
             ..Default::default()
         })
         .add_startup_system(setup.system())
@@ -75,10 +82,15 @@ fn main() {
             "spawn_text_entities",
             SystemStage::single(spawn_text_entities.system()),
         )
+        .add_startup_stage(
+            "spawn_button_entities",
+            SystemStage::single(spawn_button_entities.system()),
+        )
         .add_system(green_train_update.system())
         .add_system(purple_train_update.system())
         .add_system(red_train_update.system())
         .add_system(blue_train_update.system())
+        .add_system(press_button.system())
         .run();
 }
 
@@ -89,8 +101,9 @@ fn setup(
 ) {
     // camera
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(UiCameraBundle::default());
 
-    let mut window = windows.get_primary_mut().unwrap();
+    let window = windows.get_primary_mut().unwrap();
 
     window.set_position(IVec2::new(3870, 4830));
 
@@ -135,11 +148,15 @@ fn setup(
 
 fn train_block_spawn(
     mut commands: Commands,
-    materials: Res<TrainMaterials>,
+    train_materials: Res<TrainMaterials>,
     ui_tracks: Res<UiTrackPos>,
 ) {
     println!("train_block_spawn!!");
-    let size = Vec2::new(materials.train_block_size, materials.train_block_size);
+
+    let size = Vec2::new(
+        train_materials.train_block_size,
+        train_materials.train_block_size,
+    );
 
     let track_distance = 5;
     let all_tracks: Vec<Arc<Mutex<Track>>> = (1..14)
@@ -157,11 +174,17 @@ fn train_block_spawn(
     let red_state_mutex = Arc::new(Mutex::new(TrackState::L8));
     let blue_state_mutex = Arc::new(Mutex::new(TrackState::L13));
 
-    //GreenTrainID, PurpleTrainID, RedTrainID, BlueTrainID
+    let trains = vec![
+        Arc::new(Mutex::new(Train::new(0, 2))),
+        Arc::new(Mutex::new(Train::new(1, 3))),
+        Arc::new(Mutex::new(Train::new(2, 3))),
+        Arc::new(Mutex::new(Train::new(3, 4))),
+    ];
 
+    let green_train = trains[0].clone();
     commands
         .spawn_bundle(SpriteBundle {
-            material: materials.green_train_material.clone(),
+            material: train_materials.green_train_material.clone(),
             transform: Transform {
                 translation: ui_tracks.track_pos[TrackState::L2 as usize].0.clone(),
                 ..Default::default()
@@ -175,17 +198,22 @@ fn train_block_spawn(
         })
         .insert(std::thread::spawn(move || {
             let circuit = GreenCircuit::new(tracks);
-            let train = Train::new(0, 3);
 
             loop {
+                let train;
+                {
+                    train = green_train.lock().unwrap().clone();
+                }
+
                 circuit.run(green_state_mutex.clone(), &train);
             }
         }));
 
     let tracks = all_tracks.clone();
+    let purple_train = trains[1].clone();
     commands
         .spawn_bundle(SpriteBundle {
-            material: materials.purple_train_material.clone(),
+            material: train_materials.purple_train_material.clone(),
             transform: Transform {
                 translation: ui_tracks.track_pos[TrackState::L7 as usize].0.clone(),
                 ..Default::default()
@@ -199,17 +227,20 @@ fn train_block_spawn(
         })
         .insert(std::thread::spawn(move || {
             let circuit = PurpleCircuit::new(tracks);
-            let train = Train::new(1, 4);
-
             loop {
+                let train;
+                {
+                    train = purple_train.lock().unwrap().clone();
+                }
                 circuit.run(purple_state_mutex.clone(), &train);
             }
         }));
 
     let tracks = all_tracks.clone();
+    let red_train = trains[2].clone();
     commands
         .spawn_bundle(SpriteBundle {
-            material: materials.red_train_material.clone(),
+            material: train_materials.red_train_material.clone(),
             transform: Transform {
                 translation: ui_tracks.track_pos[TrackState::L8 as usize].0.clone(),
                 ..Default::default()
@@ -223,20 +254,23 @@ fn train_block_spawn(
         })
         .insert(std::thread::spawn(move || {
             let circuit = RedCircuit::new(tracks);
-            let train = Train::new(0, 3);
 
             loop {
+                let train;
+                {
+                    train = red_train.lock().unwrap().clone();
+                }
                 circuit.run(red_state_mutex.clone(), &train)
             }
-
         }));
 
     let tracks = all_tracks.clone();
+    let blue_train = trains[3].clone();
     commands
         .spawn_bundle(SpriteBundle {
-            material: materials.blue_train_material.clone(),
+            material: train_materials.blue_train_material.clone(),
             transform: Transform {
-                translation: ui_tracks.track_pos[TrackState::L13 as usize].0.clone(),
+                translation: ui_tracks.track_pos[TrackState::L12 as usize].0.clone(),
                 ..Default::default()
             },
             sprite: Sprite::new(size),
@@ -248,12 +282,18 @@ fn train_block_spawn(
         })
         .insert(std::thread::spawn(move || {
             let circuit = BlueCircuit::new(tracks);
-            let train = Train::new(3, 5);
 
             loop {
+                let train;
+                {
+                    train = blue_train.lock().unwrap().clone();
+                }
+
                 circuit.run(blue_state_mutex.clone(), &train);
             }
         }));
+
+    commands.insert_resource(trains);
 }
 
 fn spawn_track_entities(
@@ -449,6 +489,86 @@ fn spawn_text_entities(
     });
 }
 
+fn spawn_button_entities(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    train_materials: Res<TrainMaterials>,
+) {
+    println!("spawn_button_entities");
+
+    let velocity_texts = vec!["Velocidade ++".to_string(), "Velocidade --".to_string()];
+
+    let train_colors = vec![
+        train_materials.green_train_material.clone(),
+        train_materials.purple_train_material.clone(),
+        train_materials.red_train_material.clone(),
+        train_materials.blue_train_material.clone(),
+    ];
+
+    commands
+        .spawn_bundle(NodeBundle {
+            style: Style {
+                margin: Rect::all(Val::Percent(0.5)),
+                size: Size::new(Val::Percent(25.0), Val::Percent(100.0)),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+
+                display: Display::Flex,
+                flex_wrap: FlexWrap::Wrap,
+                ..Default::default()
+            },
+            visible: Visible {
+                is_visible: false,
+                is_transparent: true,
+            },
+            ..Default::default()
+        })
+        .with_children(|root| {
+            for (color, train_id) in train_colors.iter().zip([
+                TrainID::GREEN,
+                TrainID::PURPLE,
+                TrainID::RED,
+                TrainID::BLUE,
+            ]) {
+                for (text, button_action) in velocity_texts
+                    .iter()
+                    .zip([ButtonAction::INCREMENT, ButtonAction::DECREMENT])
+                {
+                    root.spawn_bundle(ButtonBundle {
+                        style: Style {
+                            size: Size::new(Val::Px(150.0), Val::Px(65.0)),
+                            // center button
+                            margin: Rect::all(Val::Percent(1.0)),
+                            // align_self: AlignSelf::Center,
+                            // horizontally center child text
+                            justify_content: JustifyContent::Center,
+                            // vertically center child text
+                            align_items: AlignItems::Center,
+                            ..Default::default()
+                        },
+                        material: color.clone(),
+                        ..Default::default()
+                    })
+                    .insert(train_id.clone())
+                    .insert(button_action)
+                    .with_children(|parent| {
+                        parent.spawn_bundle(TextBundle {
+                            text: Text::with_section(
+                                text,
+                                TextStyle {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    font_size: 20.0,
+                                    color: Color::rgb(0.9, 0.9, 0.9),
+                                },
+                                Default::default(),
+                            ),
+                            ..Default::default()
+                        });
+                    });
+                }
+            }
+        });
+}
 fn green_train_update(
     mut green_query: Query<(&TrainState, &mut Transform, With<GreenTrainID>)>,
 
@@ -504,4 +624,61 @@ fn blue_train_update(
             transform.translation = ui_tracks.track_pos[state as usize].0.clone();
         }
     }
+}
+
+
+fn press_button(
+    mut query: Query<
+        (
+            &Interaction,
+            &mut Handle<ColorMaterial>,
+            &Children,
+            &ButtonAction,
+            &TrainID,
+        ),
+        (Changed<Interaction>, With<Button>),
+    >,
+    trains: Res<Vec<Arc<Mutex<Train>>>>,
+    train_materials: Res<TrainMaterials>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    query.for_each_mut(|result| {
+
+        let (interaction, mut material, childred, button_action, train_id) = result;
+
+    match *interaction {
+        Interaction::Clicked => {
+            *material = materials.add(Color::rgb(0.35, 0.75, 0.35).into());
+        }
+        // Interaction::Hovered => todo!(),
+        // Interaction::None => todo!(),
+        Interaction::None => {
+            match train_id {
+                TrainID::GREEN => *material = train_materials.green_train_material.clone(),
+                TrainID::PURPLE => *material = train_materials.purple_train_material.clone(),
+                TrainID::RED => *material = train_materials.red_train_material.clone(),
+                TrainID::BLUE => *material = train_materials.blue_train_material.clone(),
+            }
+            return;
+        }
+        _ => {
+            return;
+        }
+    }
+
+    let mut train = match train_id {
+        TrainID::GREEN => trains[0].lock().unwrap(),
+        TrainID::PURPLE => trains[1].lock().unwrap(),
+        TrainID::RED => trains[2].lock().unwrap(),
+        TrainID::BLUE => trains[3].lock().unwrap(),
+    };
+
+    match button_action {
+        ButtonAction::INCREMENT => train.increment(),
+        ButtonAction::DECREMENT => train.decrement(),
+    };
+       
+    });
+
+    
 }

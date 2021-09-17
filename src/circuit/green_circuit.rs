@@ -1,18 +1,15 @@
-use crate::circuit::print_waiting;
+
 use crate::{Track, TrackState, Train};
 use std::sync::{Arc, Mutex};
 
 pub struct GreenCircuit {
-    train: Train,
-    state: TrackState,
+
     tracks: Vec<(Arc<Mutex<Track>>, TrackState)>,
 }
 
 impl GreenCircuit {
     pub fn new(tracks: Vec<Arc<Mutex<Track>>>) -> GreenCircuit {
         GreenCircuit {
-            train: Train::new(1, 3),
-            state: TrackState::L1,
             tracks: vec![
                 (tracks[0].clone(), TrackState::L1),
                 (tracks[1].clone(), TrackState::L2),

@@ -1,21 +1,13 @@
-use crate::circuit::print_waiting;
 use crate::{Track, TrackState, Train};
-use std::{
-    convert::TryInto,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 pub struct PurpleCircuit {
-    train: Train,
-    state: TrackState,
     tracks: Vec<(Arc<Mutex<Track>>, TrackState)>,
 }
 
 impl PurpleCircuit {
     pub fn new(tracks: Vec<Arc<Mutex<Track>>>) -> PurpleCircuit {
         PurpleCircuit {
-            train: Train::new(2, 2),
-            state: TrackState::L7,
             tracks: vec![
                 (tracks[TrackState::L7 as usize].clone(), TrackState::L7),
                 (tracks[TrackState::L5 as usize].clone(), TrackState::L5),
