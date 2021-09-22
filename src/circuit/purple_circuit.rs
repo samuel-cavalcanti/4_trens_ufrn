@@ -1,5 +1,7 @@
-use crate::{Track, TrackState, Train};
+use crate::{Track, track::TrackState, Train};
 use std::sync::{Arc, Mutex};
+
+use super::Circuit;
 
 pub struct PurpleCircuit {
     tracks: Vec<(Arc<Mutex<Track>>, TrackState)>,
@@ -16,8 +18,10 @@ impl PurpleCircuit {
             ],
         }
     }
+}
 
-    pub fn run(&self, ui_state: Arc<Mutex<TrackState>>, train: &Train) {
+impl Circuit for PurpleCircuit {
+    fn run(&self, ui_state: Arc<Mutex<TrackState>>, train: &Train) {
         for (track, track_state) in self.tracks.clone() {
             {
                 let result_lock = track.lock().unwrap();
@@ -27,5 +31,9 @@ impl PurpleCircuit {
                 result_lock.run(&train);
             }
         }
+    }
+
+    fn initial_track_state(&self) -> TrackState {
+        self.tracks[0].1.clone()
     }
 }

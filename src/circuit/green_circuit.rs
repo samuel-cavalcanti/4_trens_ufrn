@@ -1,9 +1,9 @@
-
-use crate::{Track, TrackState, Train};
+use crate::{Track, track::TrackState, Train};
 use std::sync::{Arc, Mutex};
 
-pub struct GreenCircuit {
+use super::Circuit;
 
+pub struct GreenCircuit {
     tracks: Vec<(Arc<Mutex<Track>>, TrackState)>,
 }
 
@@ -18,8 +18,10 @@ impl GreenCircuit {
             ],
         }
     }
+}
 
-    pub fn run(&self, ui_state: Arc<Mutex<TrackState>>, train: &Train) {
+impl Circuit for GreenCircuit {
+    fn run(&self, ui_state: Arc<Mutex<TrackState>>, train: &Train) {
         for (track, track_state) in self.tracks.clone() {
             {
                 let result_lock = track.lock().unwrap();
@@ -29,5 +31,9 @@ impl GreenCircuit {
                 result_lock.run(train);
             }
         }
+    }
+
+    fn initial_track_state(&self) -> TrackState {
+        self.tracks[0].1.clone()
     }
 }
