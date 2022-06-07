@@ -6,20 +6,14 @@ use tracks::Track;
 use crate::{HalfWindowSize, TrackMaterials, TrainMaterials, UiTrackPos};
 pub struct SetupPlugin;
 
-
-
 impl Plugin for SetupPlugin {
-    fn build(&self, app: &mut AppBuilder) {
-        app
-        .add_startup_system(setup.system())
-        .add_startup_stage(
+    fn build(&self, app: &mut App) {
+        app.add_startup_system(setup).add_startup_stage(
             "spawn_track_entities",
-            SystemStage::single(spawn_track_entities.system()),
+            SystemStage::single(spawn_track_entities),
         );
     }
 }
-
-
 
 fn setup(
     mut commands: Commands,
@@ -73,9 +67,9 @@ fn setup(
     })
 }
 
-
 fn spawn_track_entities(
     mut commands: Commands,
+    materials: Res<Assets<ColorMaterial>>,
     track_materials: Res<TrackMaterials>,
     train_materials: Res<TrainMaterials>,
     half_window_size: Res<HalfWindowSize>,
@@ -93,23 +87,42 @@ fn spawn_track_entities(
         -half_window_size.height + blue_track_size.y / 2.0 + half_window_size.height / 5.0,
         10.0,
     );
+
+    let background_color = materials
+        .get(track_materials.background_material.clone())
+        .clone()
+        .unwrap()
+        .color;
+    // let color = ;
     commands
         .spawn_bundle(SpriteBundle {
-            material: track_materials.background_material.clone(),
+            // material: track_materials.background_material.clone(),
             transform: Transform {
                 translation: blue_track_pos,
                 ..Default::default()
             },
-            sprite: Sprite::new(Vec2::new(
-                blue_track_size.x - contour_size,
-                blue_track_size.y - contour_size,
-            )),
+            sprite: Sprite {
+                custom_size: Some(Vec2::new(
+                    blue_track_size.x - contour_size,
+                    blue_track_size.y - contour_size,
+                )),
+                color: background_color.clone(),
+                ..Default::default()
+            },
             ..Default::default()
         })
         .with_children(|parent| {
             parent.spawn_bundle(SpriteBundle {
-                material: track_materials.blue_track_material.clone(),
-                sprite: Sprite::new(blue_track_size),
+                // material: track_materials.blue_track_material.clone(),
+                sprite: Sprite {
+                    custom_size: Some(blue_track_size),
+                    color: materials
+                        .get(track_materials.blue_track_material.clone())
+                        .clone()
+                        .unwrap()
+                        .color,
+                    ..Default::default()
+                },
                 ..Default::default()
             });
         });
@@ -166,23 +179,30 @@ fn spawn_track_entities(
     );
 
     for material in material_tracks {
+
         commands
             .spawn_bundle(SpriteBundle {
-                material: track_materials.background_material.clone(),
                 transform: Transform {
                     translation: pos,
                     ..Default::default()
                 },
-                sprite: Sprite::new(Vec2::new(
-                    small_track_size.x - contour_size,
-                    small_track_size.y - contour_size,
-                )),
+                sprite: Sprite {
+                    custom_size: Some(Vec2::new(
+                        small_track_size.x - contour_size,
+                        small_track_size.y - contour_size,
+                    )),
+                    color: background_color.clone(),
+                    ..Default::default()
+                },
                 ..Default::default()
             })
             .with_children(|parent| {
                 parent.spawn_bundle(SpriteBundle {
-                    material,
-                    sprite: Sprite::new(small_track_size),
+                    sprite: Sprite {
+                        custom_size: Some(small_track_size),
+                        color: materials.get(material.clone()).unwrap().color,
+                        ..Default::default()
+                    },
                     ..Default::default()
                 });
             });
@@ -216,4 +236,3 @@ fn spawn_track_entities(
 
     commands.insert_resource(tracks);
 }
-

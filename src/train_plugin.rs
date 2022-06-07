@@ -1,4 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    sync::{Arc, Mutex},
+    thread::JoinHandle,
+};
 
 use bevy::prelude::*;
 use tracks::{
@@ -8,20 +11,24 @@ use tracks::{
 
 use crate::{TrainMaterials, TrainState, UiTrackPos};
 
+#[derive(Component)]
+struct ThreadComponent(JoinHandle<()>);
+
 pub struct TrainPlugin;
 
 impl Plugin for TrainPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         app.add_startup_stage(
             "spawn_train_entities",
-            SystemStage::single(train_block_spawn.system()),
+            SystemStage::single(train_block_spawn),
         )
-        .add_system(train_update.system());
+        .add_system(train_update);
     }
 }
 
 fn train_block_spawn(
     mut commands: Commands,
+    materials: Res<Assets<ColorMaterial>>,
     train_materials: Res<TrainMaterials>,
     ui_tracks: Res<UiTrackPos>,
     tracks: Res<Vec<Arc<Mutex<Track>>>>,
@@ -52,7 +59,7 @@ fn train_block_spawn(
         Arc::new(Mutex::new(Train::new(3, 4))),
     ];
 
-    let materials = vec![
+    let train_materials = vec![
         train_materials.green_train_material.clone(),
         train_materials.purple_train_material.clone(),
         train_materials.red_train_material.clone(),
@@ -60,38 +67,43 @@ fn train_block_spawn(
     ];
     commands.insert_resource(trains.clone());
 
-    for ((circuit, train), material) in circuits.iter().zip(trains).zip(materials) {
+    for ((circuit, train), material) in circuits.iter().zip(trains).zip(train_materials) {
         let state = Arc::new(Mutex::new(circuit.initial_track_state()));
         let translation = ui_tracks.track_pos[circuit.initial_track_state() as usize]
             .0
             .clone();
 
         let cloned_circuit: Arc<dyn Circuit + Send + Sync> = circuit.clone();
+        let color = materials.get(material.clone()).unwrap().color;
         commands
             .spawn_bundle(SpriteBundle {
-                material,
+                // material,
                 transform: Transform {
                     translation,
                     ..Default::default()
                 },
-                sprite: Sprite::new(size),
+                sprite: Sprite {
+                    custom_size: Some(size),
+                    color: color,
+                    ..Default::default()
+                },
                 ..Default::default()
             })
             .insert(TrainState {
                 state: state.clone(),
             })
-            .insert(std::thread::spawn(move || loop {
+            .insert(ThreadComponent(std::thread::spawn(move || loop {
                 let circuit_train;
                 {
                     circuit_train = train.lock().unwrap().clone();
                 }
 
                 cloned_circuit.run(state.clone(), &circuit_train);
-            }));
+            })));
     }
 }
 
-fn train_update(query: Query<(&TrainState, &mut Transform)>, ui_tracks: Res<UiTrackPos>) {
+fn train_update(mut query: Query<(&TrainState, &mut Transform)>, ui_tracks: Res<UiTrackPos>) {
     query.for_each_mut(|(train_state, mut transform)| {
         if let Ok(mutex) = train_state.state.try_lock() {
             let state = mutex.clone();

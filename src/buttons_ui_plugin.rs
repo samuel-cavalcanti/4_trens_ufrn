@@ -1,25 +1,25 @@
 use std::sync::{Arc, Mutex};
 
+use crate::{ButtonAction, TrainID, TrainMaterials};
 use bevy::prelude::*;
 use tracks::Train;
-
-use crate::{ButtonAction, TrainID, TrainMaterials};
 
 pub struct ButtonUiPlugin;
 
 impl Plugin for ButtonUiPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         app.add_startup_stage(
             "spawn_button_entities",
-            SystemStage::single(spawn_button_entities.system()),
+            SystemStage::single(spawn_button_entities),
         )
-        .add_system(press_button.system());
+        .add_system(press_button);
     }
 }
 
 fn spawn_button_entities(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    materials: Res<Assets<ColorMaterial>>,
     train_materials: Res<TrainMaterials>,
 ) {
     println!("spawn_button_entities");
@@ -45,10 +45,11 @@ fn spawn_button_entities(
                 flex_wrap: FlexWrap::Wrap,
                 ..Default::default()
             },
-            visible: Visible {
-                is_visible: false,
-                is_transparent: true,
-            },
+            visibility: Visibility { is_visible: false },
+            // visible: Visible {
+            //     is_visible: false,
+            //     is_transparent: true,
+            // },
             ..Default::default()
         })
         .with_children(|root| {
@@ -58,6 +59,8 @@ fn spawn_button_entities(
                 TrainID::RED,
                 TrainID::BLUE,
             ]) {
+                let color_material = materials.get(color.clone()).unwrap();
+
                 for (text, button_action) in velocity_texts
                     .iter()
                     .zip([ButtonAction::INCREMENT, ButtonAction::DECREMENT])
@@ -68,9 +71,10 @@ fn spawn_button_entities(
                             margin: Rect::all(Val::Percent(1.0)),
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
+
                             ..Default::default()
                         },
-                        material: color.clone(),
+                        color: UiColor(color_material.color),
                         ..Default::default()
                     })
                     .insert(train_id.clone())
@@ -95,36 +99,31 @@ fn spawn_button_entities(
 }
 
 fn press_button(
-    query: Query<
-        (
-            &Interaction,
-            &mut Handle<ColorMaterial>,
-            &Children,
-            &ButtonAction,
-            &TrainID,
-        ),
+    mut query: Query<
+        (&Interaction, &mut UiColor, &ButtonAction, &TrainID),
         (Changed<Interaction>, With<Button>),
     >,
     trains: Res<Vec<Arc<Mutex<Train>>>>,
     train_materials: Res<TrainMaterials>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    materials: ResMut<Assets<ColorMaterial>>,
 ) {
     query.for_each_mut(|result| {
-        let (interaction, mut material, childred, button_action, train_id) = result;
+        let (interaction, mut material, button_action, train_id) = result;
 
         match *interaction {
             Interaction::Clicked => {
-                *material = materials.add(Color::rgb(0.35, 0.75, 0.35).into());
+                *material = UiColor(Color::rgb(0.35, 0.75, 0.35));
             }
-            // Interaction::Hovered => todo!(),
-            // Interaction::None => todo!(),
             Interaction::None => {
-                match train_id {
-                    TrainID::GREEN => *material = train_materials.green_train_material.clone(),
-                    TrainID::PURPLE => *material = train_materials.purple_train_material.clone(),
-                    TrainID::RED => *material = train_materials.red_train_material.clone(),
-                    TrainID::BLUE => *material = train_materials.blue_train_material.clone(),
-                }
+                let color_material = match train_id {
+                    TrainID::GREEN => train_materials.green_train_material.clone(),
+                    TrainID::PURPLE => train_materials.purple_train_material.clone(),
+                    TrainID::RED => train_materials.red_train_material.clone(),
+                    TrainID::BLUE => train_materials.blue_train_material.clone(),
+                };
+
+                let color_material = materials.get(color_material.clone()).unwrap();
+                *material = UiColor(color_material.color);
                 return;
             }
             _ => {

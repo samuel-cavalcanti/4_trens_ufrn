@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, window::PresentMode};
 use buttons_ui_plugin::ButtonUiPlugin;
 use setup_plugin::SetupPlugin;
 use std::sync::{Arc, Mutex};
@@ -37,20 +37,20 @@ pub struct HalfWindowSize {
     width: f32,
     height: f32,
 }
-
+#[derive(Component)]
 pub enum ButtonAction {
     INCREMENT,
     DECREMENT,
 }
 
-#[derive(Clone)]
+#[derive(Clone,Component)]
 pub enum TrainID {
     GREEN,
     PURPLE,
     RED,
     BLUE,
 }
-
+#[derive(Component)]
 pub struct TrainState {
     state: Arc<Mutex<TrackState>>,
 }
@@ -58,18 +58,19 @@ pub struct TrainState {
 const APP_NAME: &str = "Visualização da dinâmica dos trens";
 
 fn main() {
-    App::build()
+    App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(WindowDescriptor {
             title: APP_NAME.to_string(),
             width: 600.0,
             height: 800.0,
-            vsync: true,
+            present_mode:PresentMode::Fifo,
             ..Default::default()
         })
         .add_plugin(SetupPlugin)
         .add_plugin(TrainPlugin)
         .add_plugin(TextPlugin)
         .add_plugin(ButtonUiPlugin)
+      
         .run();
 }

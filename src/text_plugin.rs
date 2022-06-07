@@ -5,10 +5,10 @@ use crate::UiTrackPos;
 pub struct TextPlugin;
 
 impl Plugin for TextPlugin {
-    fn build(&self, app: &mut AppBuilder) {
+    fn build(&self, app: &mut App) {
         app.add_startup_stage(
             "spawn_text_entities",
-            SystemStage::single(spawn_text_entities.system()),
+            SystemStage::single(spawn_text_entities),
         );
     }
 }
@@ -24,10 +24,10 @@ fn spawn_text_entities(
     let track_pos = &ui_tracks.track_pos;
 
     for (pos, text_value) in track_pos {
-        //  let translation = Vec3::new(pos.x,pos.y,100.0);
+         let translation = Vec3::new(pos.x,pos.y,200.0);
         commands.spawn_bundle(Text2dBundle {
             transform: Transform {
-                translation: pos.clone(),
+                translation: translation,
                 ..Default::default()
             },
             text: Text::with_section(
@@ -51,7 +51,7 @@ fn spawn_text_entities(
             translation: Vec3::new(
                 ui_tracks.center_blue_track.x,
                 -ui_tracks.center_blue_track.y + 150.0,
-                100.0,
+                110.0,
             ),
             ..Default::default()
         },
